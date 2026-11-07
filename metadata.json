@@ -1,0 +1,6 @@
+{
+  "name": "PinjamBalik",
+  "description": "Aplikasi dokumentasi transaksi penyewaan barang dan identitas pelanggan dengan foto kondisi, kelengkapan, dan pengembalian",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
