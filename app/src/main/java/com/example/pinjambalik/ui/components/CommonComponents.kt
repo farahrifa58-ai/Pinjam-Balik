@@ -1,7 +1,11 @@
 package com.example.pinjambalik.ui.components
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -29,6 +33,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
@@ -38,6 +43,7 @@ import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -336,20 +342,22 @@ fun PhotoThumbnailCard(
     val context = LocalContext.current
     val file = PhotoStorageManager.getFileFromRelativePath(context, photo.filePath)
     var showEditCaptionDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable { onView() },
+            .clip(RoundedCornerShape(12.dp)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(4f / 3f)
+                    .height(180.dp)
                     .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .clickable { onView() }
             ) {
                 if (file != null) {
                     AsyncImage(
@@ -363,35 +371,40 @@ fun PhotoThumbnailCard(
                     )
                 }
 
-                // Delete Button Overlay
-                if (onDelete != null) {
-                    Surface(
-                        shape = CircleShape,
-                        color = Color.Black.copy(alpha = 0.6f),
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp)
+                // Top Floating Badge: Preview hint
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.Black.copy(alpha = 0.6f),
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(
-                            onClick = onDelete,
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Hapus Foto",
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Default.ZoomIn,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Ketuk untuk perbesar",
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
                 }
             }
 
-            // Caption Section
+            // Caption & Action Buttons Section
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(8.dp),
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -403,21 +416,61 @@ fun PhotoThumbnailCard(
                     modifier = Modifier.weight(1f)
                 )
 
-                if (onEditCaption != null) {
-                    IconButton(
-                        onClick = { showEditCaptionDialog = true },
-                        modifier = Modifier.size(28.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = "Edit Keterangan",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp)
-                        )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (onEditCaption != null) {
+                        IconButton(
+                            onClick = { showEditCaptionDialog = true },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "Edit Keterangan",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    if (onDelete != null) {
+                        IconButton(
+                            onClick = { showDeleteConfirmDialog = true },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Hapus Foto",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
                 }
             }
         }
+    }
+
+    if (showDeleteConfirmDialog && onDelete != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmDialog = false },
+            title = { Text("Hapus Foto Ini?") },
+            text = { Text("Foto dokumentasi barang ini akan dihapus dari transaksi.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteConfirmDialog = false
+                        onDelete()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Hapus")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmDialog = false }) {
+                    Text("Batal")
+                }
+            }
+        )
     }
 
     if (showEditCaptionDialog && onEditCaption != null) {
@@ -680,43 +733,84 @@ fun SensitiveIdentityDocumentBox(
 @Composable
 fun MaskedIdentityRow(
     identityType: String,
-    identityNumber: String
+    identityNumber: String,
+    modifier: Modifier = Modifier
 ) {
     var isRevealed by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+        modifier = modifier.fillMaxWidth()
     ) {
-        Surface(
-            shape = RoundedCornerShape(4.dp),
-            color = MaterialTheme.colorScheme.primaryContainer
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(
-                text = identityType,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-            )
-        }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Text(
+                        text = identityType,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
 
-        Text(
-            text = if (isRevealed) identityNumber else PrivacyUtils.maskIdentityNumber(identityNumber),
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium
-        )
+                Spacer(modifier = Modifier.width(8.dp))
 
-        IconButton(
-            onClick = { isRevealed = !isRevealed },
-            modifier = Modifier.size(24.dp)
-        ) {
-            Icon(
-                imageVector = if (isRevealed) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                contentDescription = if (isRevealed) "Sembunyikan Nomor" else "Tampilkan Nomor",
-                modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+                Text(
+                    text = if (isRevealed) identityNumber else PrivacyUtils.maskIdentityNumber(identityNumber),
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        letterSpacing = 1.sp
+                    ),
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = { isRevealed = !isRevealed },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isRevealed) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                        contentDescription = if (isRevealed) "Sembunyikan Nomor" else "Tampilkan Nomor",
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                IconButton(
+                    onClick = {
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                        val clip = ClipData.newPlainText("Nomor Identitas", identityNumber)
+                        clipboard?.setPrimaryClip(clip)
+                        Toast.makeText(context, "Nomor $identityType disalin", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ContentCopy,
+                        contentDescription = "Salin Nomor",
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
     }
 }
@@ -801,7 +895,7 @@ fun TrialExpiredDialog(
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = "Masa percobaan aktif aplikasi PinjamBalik selama 60 menit telah selesai.\n\nUntuk membuka akses tanpa batas waktu (Full Version), silakan hubungi pengembang melalui email:",
+                    text = "Masa percobaan aktif aplikasi PinjamBalik selama 60 menit telah selesai.\n\nUntuk membuka akses tanpa batas waktu (Full Version), silakan hubungi pengembang Rafline Dev:",
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -811,13 +905,23 @@ fun TrialExpiredDialog(
                     color = MaterialTheme.colorScheme.primaryContainer,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(
-                        text = AppConfig.CONTACT_EMAIL,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    Column(
                         modifier = Modifier.padding(12.dp),
-                        textAlign = TextAlign.Center
-                    )
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = AppConfig.DEVELOPER_NAME,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = AppConfig.CONTACT_EMAIL,
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.primary,
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
             }
         },
@@ -828,7 +932,7 @@ fun TrialExpiredDialog(
             ) {
                 Icon(Icons.Default.Email, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Hubungi via Email")
+                Text("Hubungi ${AppConfig.DEVELOPER_NAME}")
             }
         }
     )

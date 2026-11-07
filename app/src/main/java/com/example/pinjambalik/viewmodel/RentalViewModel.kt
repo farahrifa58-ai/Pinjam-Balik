@@ -65,8 +65,12 @@ class RentalViewModel(application: Application) : AndroidViewModel(application) 
         initialValue = emptyList()
     )
 
-    // Trial Mode & Timer
-    private val _isTrialActive = MutableStateFlow(false)
+    // License State: Full Version vs Trial
+    private val _isFullVersion = MutableStateFlow(false)
+    val isFullVersion: StateFlow<Boolean> = _isFullVersion.asStateFlow()
+
+    // Automatic Trial Mode: active when not full version
+    private val _isTrialActive = MutableStateFlow(true)
     val isTrialActive: StateFlow<Boolean> = _isTrialActive.asStateFlow()
 
     private val _trialRemainingSeconds = MutableStateFlow(AppConfig.TRIAL_DURATION_SECONDS)
@@ -75,23 +79,49 @@ class RentalViewModel(application: Application) : AndroidViewModel(application) 
     private val _isTrialExpired = MutableStateFlow(false)
     val isTrialExpired: StateFlow<Boolean> = _isTrialExpired.asStateFlow()
 
+    // Theme Mode: LIGHT, DARK, SYSTEM (Default LIGHT)
+    private val _themeMode = MutableStateFlow("LIGHT")
+    val themeMode: StateFlow<String> = _themeMode.asStateFlow()
+
+    // Language: id, en (Default id)
+    private val _language = MutableStateFlow("id")
+    val language: StateFlow<String> = _language.asStateFlow()
+
     // Retention Days
     private val _retentionDays = MutableStateFlow(60L)
     val retentionDays: StateFlow<Long> = _retentionDays.asStateFlow()
 
     init {
+        // Collect Full Version state
         viewModelScope.launch {
-            AppConfig.isTrialModeActive(application).collect { active ->
-                _isTrialActive.value = active
+            AppConfig.isFullVersion(application).collect { full ->
+                _isFullVersion.value = full
+                _isTrialActive.value = !full
             }
         }
 
+        // Collect Theme
+        viewModelScope.launch {
+            AppConfig.getAppTheme(application).collect { theme ->
+                _themeMode.value = theme
+            }
+        }
+
+        // Collect Language
+        viewModelScope.launch {
+            AppConfig.getAppLanguage(application).collect { lang ->
+                _language.value = lang
+            }
+        }
+
+        // Collect Retention Days
         viewModelScope.launch {
             AppConfig.getRetentionDays(application).collect { days ->
                 _retentionDays.value = days
             }
         }
 
+        // Collect Trial Seconds
         viewModelScope.launch {
             AppConfig.getTrialUsedSeconds(application).collect { used ->
                 val remaining = (AppConfig.TRIAL_DURATION_SECONDS - used).coerceAtLeast(0L)
@@ -100,7 +130,7 @@ class RentalViewModel(application: Application) : AndroidViewModel(application) 
             }
         }
 
-        // Timer ticking loop for trial mode
+        // Timer loop for automatic trial countdown
         viewModelScope.launch {
             while (isActive) {
                 delay(1000L)
@@ -115,6 +145,31 @@ class RentalViewModel(application: Application) : AndroidViewModel(application) 
             }
         }
     }
+
+    fun setThemeMode(theme: String) {
+        viewModelScope.launch {
+            AppConfig.setAppTheme(getApplication(), theme)
+        }
+    }
+
+    fun setLanguage(lang: String) {
+        viewModelScope.launch {
+            AppConfig.setAppLanguage(getApplication(), lang)
+        }
+    }
+
+    fun activateFullVersion(key: String, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            // Activate full version permanently (accepts key or direct activation)
+            val trimmed = key.trim()
+            val valid = trimmed.isNotEmpty()
+            if (valid) {
+                AppConfig.setFullVersion(getApplication(), true)
+            }
+            onResult(valid)
+        }
+    }
+
 
     fun setSearchQuery(query: String) {
         _searchQuery.value = query
@@ -200,18 +255,6 @@ class RentalViewModel(application: Application) : AndroidViewModel(application) 
     fun updateRetentionDays(days: Long) {
         viewModelScope.launch {
             AppConfig.setRetentionDays(getApplication(), days)
-        }
-    }
-
-    fun toggleForceTrial(enabled: Boolean) {
-        viewModelScope.launch {
-            AppConfig.setForceTrialMode(getApplication(), enabled)
-        }
-    }
-
-    fun resetTrial() {
-        viewModelScope.launch {
-            AppConfig.resetTrialTimer(getApplication())
         }
     }
 }

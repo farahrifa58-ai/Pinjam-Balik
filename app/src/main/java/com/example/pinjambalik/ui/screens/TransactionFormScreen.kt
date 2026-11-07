@@ -2,6 +2,7 @@ package com.example.pinjambalik.ui.screens
 
 import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -52,6 +53,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -182,6 +184,21 @@ fun TransactionFormScreen(
     val invoiceCode = remember { "PB-$dateCode-$randomCode" }
 
     var isSaving by remember { mutableStateOf(false) }
+    var showDiscardConfirmDialog by remember { mutableStateOf(false) }
+
+    val hasUnsavedData = itemName.isNotBlank() || customerName.isNotBlank() || customerPhone.isNotBlank()
+
+    fun handleBack() {
+        if (hasUnsavedData) {
+            showDiscardConfirmDialog = true
+        } else {
+            onNavigateBack()
+        }
+    }
+
+    BackHandler {
+        handleBack()
+    }
 
     Scaffold(
         topBar = {
@@ -201,7 +218,7 @@ fun TransactionFormScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(onClick = { handleBack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
                     }
                 },
@@ -326,7 +343,7 @@ fun TransactionFormScreen(
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded) },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .menuAnchor()
+                                .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
                         )
                         ExposedDropdownMenu(
                             expanded = categoryExpanded,
@@ -751,35 +768,81 @@ fun TransactionFormScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        OutlinedTextField(
-                            value = PrivacyUtils.formatDate(startDate),
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Mulai Sewa") },
+                        Surface(
                             modifier = Modifier
                                 .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
                                 .clickable { showStartDatePicker = true },
-                            trailingIcon = {
-                                IconButton(onClick = { showStartDatePicker = true }) {
-                                    Icon(Icons.Default.DateRange, contentDescription = null)
+                            shape = RoundedCornerShape(10.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                            color = MaterialTheme.colorScheme.surface
+                        ) {
+                            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                                Text(
+                                    text = "Mulai Sewa",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = PrivacyUtils.formatDate(startDate),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.DateRange,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
                                 }
                             }
-                        )
+                        }
 
-                        OutlinedTextField(
-                            value = PrivacyUtils.formatDate(dueDate),
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Jatuh Tempo") },
+                        Surface(
                             modifier = Modifier
                                 .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
                                 .clickable { showDueDatePicker = true },
-                            trailingIcon = {
-                                IconButton(onClick = { showDueDatePicker = true }) {
-                                    Icon(Icons.Default.DateRange, contentDescription = null)
+                            shape = RoundedCornerShape(10.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                            color = MaterialTheme.colorScheme.surface
+                        ) {
+                            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                                Text(
+                                    text = "Jatuh Tempo",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = PrivacyUtils.formatDate(dueDate),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.DateRange,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
                                 }
                             }
-                        )
+                        }
                     }
 
                     Row(
@@ -789,49 +852,54 @@ fun TransactionFormScreen(
                         OutlinedTextField(
                             value = dailyRateText,
                             onValueChange = { dailyRateText = it },
-                            label = { Text("Tarif per Hari (Rp)") },
+                            label = { Text("Tarif / Hari") },
+                            prefix = { Text("Rp ") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
                         )
 
                         OutlinedTextField(
                             value = depositAmountText,
                             onValueChange = { depositAmountText = it },
-                            label = { Text("Jaminan / DP (Rp)") },
+                            label = { Text("Jaminan / DP") },
+                            prefix = { Text("Rp ") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
                         )
                     }
 
                     // Total preview card
                     Surface(
                         shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(12.dp),
+                                .padding(14.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column {
                                 Text(
-                                    text = "Durasi: $diffDays Hari",
+                                    text = "Durasi Sewa: $diffDays Hari",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
                                 Text(
                                     text = "Total Biaya Sewa:",
                                     style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
                             }
                             Text(
                                 text = PrivacyUtils.formatCurrency(totalRentalFee),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.primary
                             )
                         }
@@ -942,5 +1010,28 @@ fun TransactionFormScreen(
         ) {
             DatePicker(state = datePickerState)
         }
+    }
+
+    if (showDiscardConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showDiscardConfirmDialog = false },
+            title = { Text("Batalkan Transaksi Baru?", fontWeight = FontWeight.Bold) },
+            text = { Text("Data yang telah Anda isi belum tersimpan. Apakah Anda yakin ingin membatalkan dan kembali?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDiscardConfirmDialog = false
+                        onNavigateBack()
+                    }
+                ) {
+                    Text("Ya, Batalkan")
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { showDiscardConfirmDialog = false }) {
+                    Text("Lanjutkan Isi")
+                }
+            }
+        )
     }
 }

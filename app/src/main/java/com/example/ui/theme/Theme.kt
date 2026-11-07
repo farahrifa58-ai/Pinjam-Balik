@@ -17,6 +17,7 @@ import com.example.pinjambalik.ui.theme.PrimaryBlueLight
 import com.example.pinjambalik.ui.theme.RoseError
 import com.example.pinjambalik.ui.theme.Slate100
 import com.example.pinjambalik.ui.theme.Slate50
+import com.example.pinjambalik.ui.theme.Slate700
 import com.example.pinjambalik.ui.theme.Slate800
 import com.example.pinjambalik.ui.theme.Slate900
 
@@ -31,6 +32,7 @@ private val DarkColorScheme = darkColorScheme(
     surface = Slate800,
     onBackground = Slate50,
     onSurface = Slate50,
+    surfaceVariant = Slate700,
     error = RoseError
 )
 
@@ -51,16 +53,22 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun PinjamBalikTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    themeMode: String = "LIGHT", // Default Terang (Light) as requested
+    dynamicColor: Boolean = false, // Keep consistent branding colors by default
     content: @Composable () -> Unit
 ) {
+    val isDark = when (themeMode.uppercase()) {
+        "DARK" -> true
+        "SYSTEM" -> isSystemInDarkTheme()
+        else -> false // "LIGHT" or default
+    }
+
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-        darkTheme -> DarkColorScheme
+        isDark -> DarkColorScheme
         else -> LightColorScheme
     }
 

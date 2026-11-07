@@ -7,6 +7,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
@@ -16,6 +18,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.pinjambalik.ui.screens.HomeScreen
 import com.example.pinjambalik.ui.screens.SettingsScreen
+import com.example.pinjambalik.ui.screens.SplashScreen
 import com.example.pinjambalik.ui.screens.TransactionDetailScreen
 import com.example.pinjambalik.ui.screens.TransactionFormScreen
 import com.example.pinjambalik.viewmodel.RentalViewModel
@@ -26,18 +29,40 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            PinjamBalikTheme {
+            val viewModel: RentalViewModel = viewModel()
+            val themeMode by viewModel.themeMode.collectAsState()
+
+            PinjamBalikTheme(themeMode = themeMode) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
                     val navController = rememberNavController()
-                    val viewModel: RentalViewModel = viewModel()
+
+                    fun safeNavigateBack() {
+                        if (navController.previousBackStackEntry != null) {
+                            navController.popBackStack()
+                        } else {
+                            navController.navigate("home") {
+                                popUpTo("home") { inclusive = true }
+                            }
+                        }
+                    }
 
                     NavHost(
                         navController = navController,
-                        startDestination = "home"
+                        startDestination = "splash"
                     ) {
+                        composable("splash") {
+                            SplashScreen(
+                                onSplashFinished = {
+                                    navController.navigate("home") {
+                                        popUpTo("splash") { inclusive = true }
+                                    }
+                                }
+                            )
+                        }
+
                         composable("home") {
                             HomeScreen(
                                 viewModel = viewModel,
@@ -50,7 +75,7 @@ class MainActivity : ComponentActivity() {
                         composable("create") {
                             TransactionFormScreen(
                                 viewModel = viewModel,
-                                onNavigateBack = { navController.popBackStack() },
+                                onNavigateBack = { safeNavigateBack() },
                                 onSaved = { createdId ->
                                     navController.popBackStack()
                                     navController.navigate("detail/$createdId")
@@ -66,14 +91,14 @@ class MainActivity : ComponentActivity() {
                             TransactionDetailScreen(
                                 transactionId = id,
                                 viewModel = viewModel,
-                                onNavigateBack = { navController.popBackStack() }
+                                onNavigateBack = { safeNavigateBack() }
                             )
                         }
 
                         composable("settings") {
                             SettingsScreen(
                                 viewModel = viewModel,
-                                onNavigateBack = { navController.popBackStack() }
+                                onNavigateBack = { safeNavigateBack() }
                             )
                         }
                     }

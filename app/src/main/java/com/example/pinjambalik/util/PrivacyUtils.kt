@@ -25,7 +25,7 @@ object PrivacyUtils {
     }
 
     fun formatCurrency(amount: Double): String {
-        val localeID = Locale("in", "ID")
+        val localeID = Locale.forLanguageTag("id-ID")
         val format = NumberFormat.getCurrencyInstance(localeID)
         format.maximumFractionDigits = 0
         return format.format(amount).replace("Rp", "Rp ")
@@ -33,13 +33,13 @@ object PrivacyUtils {
 
     fun formatDate(timestamp: Long?): String {
         if (timestamp == null || timestamp == 0L) return "-"
-        val sdf = SimpleDateFormat("dd MMM yyyy", Locale("id", "ID"))
+        val sdf = SimpleDateFormat("dd MMM yyyy", Locale.forLanguageTag("id-ID"))
         return sdf.format(Date(timestamp))
     }
 
     fun formatDateTime(timestamp: Long?): String {
         if (timestamp == null || timestamp == 0L) return "-"
-        val sdf = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("id", "ID"))
+        val sdf = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.forLanguageTag("id-ID"))
         return sdf.format(Date(timestamp))
     }
 

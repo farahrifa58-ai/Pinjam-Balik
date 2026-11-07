@@ -1,8 +1,12 @@
 package com.example.pinjambalik.ui.screens
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -24,17 +28,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Assignment
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Badge
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -52,6 +52,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -59,23 +60,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
+import com.example.R
 import com.example.pinjambalik.data.model.RentalTransaction
-import com.example.pinjambalik.ui.components.MaskedIdentityRow
-import com.example.pinjambalik.ui.components.TrialTopBanner
 import com.example.pinjambalik.ui.components.TrialExpiredDialog
+import com.example.pinjambalik.ui.components.TrialTopBanner
 import com.example.pinjambalik.ui.theme.EmeraldSuccess
-import com.example.pinjambalik.ui.theme.PrimaryBlue
 import com.example.pinjambalik.util.AppConfig
-import com.example.pinjambalik.util.PhotoStorageManager
+import com.example.pinjambalik.util.AppStrings
 import com.example.pinjambalik.util.PrivacyUtils
 import com.example.pinjambalik.viewmodel.RentalViewModel
 
@@ -88,38 +87,62 @@ fun HomeScreen(
     onNavigateToSettings: () -> Unit
 ) {
     val context = LocalContext.current
+    val activity = context as? Activity
+    val language by viewModel.language.collectAsState()
+    val strings = AppStrings.get(language)
+
     val transactions by viewModel.filteredTransactions.collectAsState()
     val allTransactions by viewModel.allTransactions.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val statusFilter by viewModel.statusFilter.collectAsState()
 
+    val isFullVersion by viewModel.isFullVersion.collectAsState()
     val isTrialActive by viewModel.isTrialActive.collectAsState()
     val remainingSeconds by viewModel.trialRemainingSeconds.collectAsState()
     val isTrialExpired by viewModel.isTrialExpired.collectAsState()
 
     var isSearchExpanded by remember { mutableStateOf(false) }
+    var lastBackPressedTime by remember { mutableLongStateOf(0L) }
+
+    // System Back Press handling: prevent accidental exits & handle search state
+    BackHandler {
+        if (isSearchExpanded) {
+            isSearchExpanded = false
+            viewModel.setSearchQuery("")
+        } else {
+            val now = System.currentTimeMillis()
+            if (now - lastBackPressedTime < 2000L) {
+                activity?.finish()
+            } else {
+                lastBackPressedTime = now
+                Toast.makeText(context, strings.pressBackAgainToExit, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     fun sendEmailToDeveloper() {
         val intent = Intent(Intent.ACTION_SENDTO).apply {
             data = Uri.parse("mailto:${AppConfig.CONTACT_EMAIL}")
-            putExtra(Intent.EXTRA_SUBJECT, "Upgrade PinjamBalik Full Version")
+            putExtra(Intent.EXTRA_SUBJECT, "Upgrade Lisensi PinjamBalik - ${AppConfig.DEVELOPER_NAME}")
             putExtra(
                 Intent.EXTRA_TEXT,
-                "Halo Pengembang PinjamBalik,\n\nSaya ingin melakukan upgrade ke Full Version tanpa batasan waktu 60 menit.\nMohon informasi selanjutnya.\n\nTerima kasih."
+                "Halo ${AppConfig.DEVELOPER_NAME},\n\nSaya ingin mengaktifkan Full Version PinjamBalik tanpa batas waktu 60 menit.\nMohon informasi selanjutnya.\n\nTerima kasih."
             )
         }
         try {
             context.startActivity(Intent.createChooser(intent, "Kirim Email"))
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+            Toast.makeText(context, "Email: ${AppConfig.CONTACT_EMAIL}", Toast.LENGTH_LONG).show()
+        }
     }
 
     Scaffold(
         topBar = {
             Column {
-                if (isTrialActive) {
+                if (isTrialActive && !isFullVersion) {
                     TrialTopBanner(
                         remainingSeconds = remainingSeconds,
-                        onContactDeveloper = { sendEmailToDeveloper() }
+                        onContactDeveloper = { onNavigateToSettings() }
                     )
                 }
 
@@ -127,30 +150,32 @@ fun HomeScreen(
                     title = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(32.dp)
+                                shape = RoundedCornerShape(10.dp),
+                                color = Color.White,
+                                modifier = Modifier.size(38.dp),
+                                shadowElevation = 2.dp
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Default.Inventory,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(20.dp)
+                                    Image(
+                                        painter = painterResource(id = R.drawable.ic_pinjambalik_logo),
+                                        contentDescription = "Pinjam Balik Logo",
+                                        modifier = Modifier.size(34.dp).clip(RoundedCornerShape(8.dp))
                                     )
                                 }
                             }
                             Spacer(modifier = Modifier.width(10.dp))
                             Column {
                                 Text(
-                                    text = "PinjamBalik",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 20.sp
+                                    text = AppConfig.APP_NAME,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 19.sp,
+                                    letterSpacing = 0.3.sp
                                 )
                                 Text(
-                                    text = "Dokumentasi Sewa & Identitas",
+                                    text = "by ${AppConfig.DEVELOPER_NAME}",
                                     fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary
                                 )
                             }
                         }
@@ -160,13 +185,13 @@ fun HomeScreen(
                             onClick = { isSearchExpanded = !isSearchExpanded },
                             modifier = Modifier.testTag("search_btn")
                         ) {
-                            Icon(Icons.Default.Search, contentDescription = "Cari Transaksi")
+                            Icon(Icons.Default.Search, contentDescription = strings.searchHint)
                         }
                         IconButton(
                             onClick = onNavigateToSettings,
                             modifier = Modifier.testTag("settings_btn")
                         ) {
-                            Icon(Icons.Default.Settings, contentDescription = "Pengaturan")
+                            Icon(Icons.Default.Settings, contentDescription = strings.settingsTitle)
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -184,7 +209,7 @@ fun HomeScreen(
                         OutlinedTextField(
                             value = searchQuery,
                             onValueChange = { viewModel.setSearchQuery(it) },
-                            placeholder = { Text("Cari barang, nama penyewa, no. nota...") },
+                            placeholder = { Text(strings.searchHint) },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("search_input"),
@@ -195,7 +220,7 @@ fun HomeScreen(
                             trailingIcon = {
                                 if (searchQuery.isNotEmpty()) {
                                     IconButton(onClick = { viewModel.setSearchQuery("") }) {
-                                        Icon(Icons.Default.Clear, contentDescription = "Hapus")
+                                        Icon(Icons.Default.Clear, contentDescription = "Clear")
                                     }
                                 }
                             },
@@ -208,7 +233,7 @@ fun HomeScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    if (!isTrialExpired) {
+                    if (!isTrialExpired || isFullVersion) {
                         onNavigateToCreate()
                     }
                 },
@@ -220,9 +245,9 @@ fun HomeScreen(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Sewa Baru")
+                    Icon(Icons.Default.Add, contentDescription = strings.newRental)
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Sewa Baru", fontWeight = FontWeight.Bold)
+                    Text(strings.newRental, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -235,7 +260,6 @@ fun HomeScreen(
             // Stats summary row
             val activeCount = allTransactions.count { it.transactionStatus == "DISEWA" }
             val completedCount = allTransactions.count { it.transactionStatus == "SELESAI" }
-            val totalRevenue = allTransactions.sumOf { it.totalRentalFee + it.repairFee }
 
             Row(
                 modifier = Modifier
@@ -249,12 +273,12 @@ fun HomeScreen(
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(
-                            text = "Sedang Disewa",
+                            text = strings.activeRentals,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                         Text(
-                            text = "$activeCount Barang",
+                            text = "$activeCount",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -268,12 +292,12 @@ fun HomeScreen(
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(
-                            text = "Selesai Dikembalikan",
+                            text = strings.completedRentals,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                         Text(
-                            text = "$completedCount Transaksi",
+                            text = "$completedCount",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSecondaryContainer
@@ -290,9 +314,9 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 val filters = listOf(
-                    "SEMUA" to "Semua (${allTransactions.size})",
-                    "DISEWA" to "Aktif Disewa ($activeCount)",
-                    "SELESAI" to "Selesai ($completedCount)"
+                    "SEMUA" to "${strings.all} (${allTransactions.size})",
+                    "DISEWA" to "${strings.activeRentals} ($activeCount)",
+                    "SELESAI" to "${strings.completedRentals} ($completedCount)"
                 )
                 items(filters) { (key, label) ->
                     FilterChip(
@@ -323,7 +347,7 @@ fun HomeScreen(
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    imageVector = Icons.Default.Assignment,
+                                    imageVector = Icons.AutoMirrored.Filled.Assignment,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(36.dp)
@@ -332,19 +356,19 @@ fun HomeScreen(
                         }
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = if (searchQuery.isNotBlank()) "Tidak ada hasil pencarian" else "Belum Ada Transaksi Sewa",
+                            text = if (searchQuery.isNotBlank()) "Tidak ada hasil pencarian" else strings.emptyTitle,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
                             text = if (searchQuery.isNotBlank())
-                                "Coba kata kunci lain"
+                                "Coba kata kunci pencarian yang lain."
                             else
-                                "Mulai catat transaksi sewa dengan menekan tombol 'Sewa Baru' di bawah.",
+                                strings.emptyDesc,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
@@ -365,8 +389,10 @@ fun HomeScreen(
         }
     }
 
-    if (isTrialExpired) {
-        TrialExpiredDialog(onContactDeveloper = { sendEmailToDeveloper() })
+    if (isTrialExpired && !isFullVersion) {
+        TrialExpiredDialog(
+            onContactDeveloper = { sendEmailToDeveloper() }
+        )
     }
 }
 
@@ -375,7 +401,6 @@ fun TransactionItemCard(
     transaction: RentalTransaction,
     onClick: () -> Unit
 ) {
-    val context = LocalContext.current
     val isCompleted = transaction.transactionStatus == "SELESAI"
 
     Card(
@@ -396,7 +421,12 @@ fun TransactionItemCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .padding(end = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Surface(
                         shape = RoundedCornerShape(4.dp),
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
@@ -406,14 +436,17 @@ fun TransactionItemCard(
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            maxLines = 1
                         )
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = transaction.itemCategory,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
@@ -422,21 +455,23 @@ fun TransactionItemCard(
                     color = if (isCompleted) Color(0xFFD1FAE5) else Color(0xFFFEF3C7)
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(6.dp)
+                                .size(7.dp)
                                 .clip(CircleShape)
                                 .background(if (isCompleted) EmeraldSuccess else Color(0xFFD97706))
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = if (isCompleted) "Selesai" else "Sedang Disewa",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (isCompleted) EmeraldSuccess else Color(0xFF92400E)
+                            color = if (isCompleted) EmeraldSuccess else Color(0xFF92400E),
+                            maxLines = 1,
+                            softWrap = false
                         )
                     }
                 }

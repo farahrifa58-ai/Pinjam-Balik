@@ -2,6 +2,7 @@ package com.example.pinjambalik.ui.screens
 
 import android.content.Intent
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -9,15 +10,18 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -46,7 +50,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -55,6 +59,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -80,6 +85,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -126,6 +132,21 @@ fun TransactionDetailScreen(
     // Add extra photo state
     var showAddPhotoSheet by remember { mutableStateOf(false) }
     var extraPhotoType by remember { mutableStateOf(PhotoType.BEFORE_HANDOVER) }
+
+    BackHandler {
+        when {
+            viewingPhotoFile != null -> {
+                viewingPhotoFile = null
+                viewingPhotoCaption = null
+            }
+            showAddPhotoSheet -> showAddPhotoSheet = false
+            showReturnDialog -> showReturnDialog = false
+            showDeleteTxConfirm -> showDeleteTxConfirm = false
+            showClearIdentityPhotosConfirm -> showClearIdentityPhotosConfirm = false
+            selectedTabIndex != 0 -> selectedTabIndex = 0
+            else -> onNavigateBack()
+        }
+    }
 
     if (transaction == null) {
         Scaffold(
@@ -680,44 +701,102 @@ fun TabCustomerIdentity(
         // Identity Information Card
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(12.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Text(
-                    text = "Data Identitas Pelanggan",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("Jenis Identitas:", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(tx.identityType, fontWeight = FontWeight.Bold)
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("Nama Sesuai Identitas:", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(tx.identityName.ifBlank { tx.customerName }, fontWeight = FontWeight.SemiBold)
-                }
-
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Nomor Identitas:", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    MaskedIdentityRow(
-                        identityType = tx.identityType,
-                        identityNumber = tx.identityNumber
+                    Text(
+                        text = "Data Identitas Pelanggan",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
                     )
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Text(
+                            text = tx.identityType,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+
+                // Nama Sesuai Dokumen
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "Nama Sesuai Dokumen Identitas:",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = tx.identityName.ifBlank { tx.customerName },
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                // Nomor Identitas NIK / SIM
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "Nomor Identitas (${tx.identityType}):",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (tx.identityNumber.isNotBlank()) {
+                        MaskedIdentityRow(
+                            identityType = tx.identityType,
+                            identityNumber = tx.identityNumber
+                        )
+                    } else {
+                        Text(
+                            text = "Tidak dicantumkan (Opsional)",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
+                }
+
+                if (tx.customerPhone.isNotBlank()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = "Kontak WhatsApp / Telepon:",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = tx.customerPhone,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
+                if (tx.customerAddress.isNotBlank()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = "Alamat Tempat Tinggal:",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = tx.customerAddress,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
                 }
             }
         }
@@ -845,26 +924,36 @@ fun TabItemPhotos(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 10.dp)
+                    ) {
                         Text(
                             text = "1. Kondisi Sebelum Diserahkan",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
-                        Text(
-                            text = "Catatan: ${tx.itemConditionBefore}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        if (tx.itemConditionBefore.isNotBlank()) {
+                            Text(
+                                text = "Catatan: ${tx.itemConditionBefore}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
 
                     FilledTonalButton(
                         onClick = { onAddPhoto(PhotoType.BEFORE_HANDOVER) },
-                        modifier = Modifier.testTag("add_before_photo_btn")
+                        modifier = Modifier
+                            .wrapContentWidth()
+                            .defaultMinSize(minWidth = 96.dp, minHeight = 36.dp)
+                            .testTag("add_before_photo_btn"),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                     ) {
                         Icon(Icons.Default.AddAPhoto, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Tambah", fontSize = 12.sp)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Tambah", fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
                     }
                 }
 
@@ -904,19 +993,34 @@ fun TabItemPhotos(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "2. Kelengkapan / Aksesoris",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 10.dp)
+                    ) {
+                        Text(
+                            text = "2. Kelengkapan / Aksesoris",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Foto aksesoris, charger, unit, atau nota",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
 
                     FilledTonalButton(
                         onClick = { onAddPhoto(PhotoType.COMPLETENESS) },
-                        modifier = Modifier.testTag("add_completeness_photo_btn")
+                        modifier = Modifier
+                            .wrapContentWidth()
+                            .defaultMinSize(minWidth = 96.dp, minHeight = 36.dp)
+                            .testTag("add_completeness_photo_btn"),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                     ) {
                         Icon(Icons.Default.AddAPhoto, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Tambah", fontSize = 12.sp)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Tambah", fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
                     }
                 }
 
@@ -1029,7 +1133,7 @@ fun TabReturnDocumentation(
                         )
                     }
 
-                    Divider()
+                    HorizontalDivider()
 
                     Text(
                         text = "Kondisi Saat Kembali:",
@@ -1043,7 +1147,7 @@ fun TabReturnDocumentation(
                     )
 
                     if (!tx.returnDamageNotes.isNullOrBlank()) {
-                        Divider()
+                        HorizontalDivider()
                         Text(
                             text = "Catatan Kerusakan / Kehilangan:",
                             style = MaterialTheme.typography.labelMedium,
@@ -1273,54 +1377,90 @@ fun TabPayment(
                     fontWeight = FontWeight.Bold
                 )
 
+                // Biaya Sewa
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Tarif Sewa (${tx.dailyRate.toInt()} / hari):")
-                    Text(PrivacyUtils.formatCurrency(tx.totalRentalFee), fontWeight = FontWeight.SemiBold)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Biaya Sewa (${tx.durationDays} Hari)",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = "@ ${PrivacyUtils.formatCurrency(tx.dailyRate)} / hari",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Text(
+                        text = PrivacyUtils.formatCurrency(tx.totalRentalFee),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.End
+                    )
                 }
 
                 if (tx.depositAmount > 0) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Jaminan / Uang Deposit:")
-                        Text(PrivacyUtils.formatCurrency(tx.depositAmount), fontWeight = FontWeight.SemiBold)
+                        Text(
+                            text = "Jaminan / Uang Deposit:",
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = PrivacyUtils.formatCurrency(tx.depositAmount),
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.End
+                        )
                     }
                 }
 
                 if (tx.repairFee > 0) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Denda Kerusakan / Kehilangan:")
                         Text(
-                            PrivacyUtils.formatCurrency(tx.repairFee),
+                            text = "Denda Kerusakan / Kehilangan:",
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        Text(
+                            text = PrivacyUtils.formatCurrency(tx.repairFee),
                             color = MaterialTheme.colorScheme.error,
-                            fontWeight = FontWeight.Bold
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.End
                         )
                     }
                 }
 
-                Divider()
+                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = "Total Pembayaran:",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
                     )
                     Text(
                         text = PrivacyUtils.formatCurrency(grandTotal),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.End
                     )
                 }
 
@@ -1339,7 +1479,7 @@ fun TabPayment(
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = paymentStatusExpanded) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .menuAnchor()
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
                     )
                     ExposedDropdownMenu(
                         expanded = paymentStatusExpanded,

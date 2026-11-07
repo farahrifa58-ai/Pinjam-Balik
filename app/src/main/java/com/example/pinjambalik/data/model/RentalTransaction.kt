@@ -41,4 +41,7 @@ data class RentalTransaction(
     
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
-)
+) {
+    val durationDays: Int
+        get() = (((rentalDueDate - rentalStartDate) / (24 * 3600 * 1000L)).toInt()).coerceAtLeast(1)
+}

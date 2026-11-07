@@ -12,12 +12,16 @@ android {
   namespace = "com.example"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
+  val isFullEdition = project.hasProperty("fullVersion") && project.property("fullVersion").toString() == "true"
+
   defaultConfig {
     applicationId = "com.aistudio.pinjambalik.docpk"
     minSdk = 24
     targetSdk = 36
     versionCode = 1
     versionName = "1.0"
+
+    buildConfigField("boolean", "IS_FULL_VERSION_EDITION", isFullEdition.toString())
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
